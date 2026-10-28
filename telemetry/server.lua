@@ -38,11 +38,20 @@ addEventHandler("tel:start", resourceRoot, function(label, model)
 
     -- tag del mapa (tambien en el nombre del archivo)
     local mapName = ""
+    local mapTitle = ""
     if getRunningGamemodeMap then
         local m = getRunningGamemodeMap()
         if m and isElement(m) then
             mapName = getResourceName(m) or ""
+            if getResourceInfo then
+                mapTitle = getResourceInfo(m, "name") or ""
+            end
         end
+    end
+    -- fallback: usar el ultimo mapa que inicio el gamemode
+    if mapName == "" then
+        mapName = lastMapName or ""
+        mapTitle = lastMapTitle or ""
     end
     local mapTag = mapName ~= "" and mapName:gsub("[^%w_%-]", "_") or ""
     mapTag = mapTag:sub(1, 40)
@@ -67,8 +76,8 @@ addEventHandler("tel:start", resourceRoot, function(label, model)
     local ver = getVersion()
     local verstr = type(ver) == "table" and (ver.sortable or ver.mta or "") or tostring(ver)
     local meta = string.format(
-        '{"type":"meta","v":1,"player":"%s","vehicle":%d,"label":"%s","map":"%s","mta":"%s","date":"%s"}',
-        esc(getPlayerName(player)), tonumber(model) or 0, esc(label), esc(mapName),
+        '{"type":"meta","v":1,"player":"%s","vehicle":%d,"label":"%s","map":"%s","title":"%s","mta":"%s","date":"%s"}',
+        esc(getPlayerName(player)), tonumber(model) or 0, esc(label), esc(mapName), esc(mapTitle),
         esc(verstr), os.date("%Y-%m-%d %H:%M:%S"))
     fileWrite(f, meta .. "\n")
 
@@ -163,6 +172,15 @@ end)
 
 addEventHandler("onResourceStart", resourceRoot, function()
     outputServerLog("[telemetry] resource iniciado. En el juego: /telstart [etiqueta]")
+    if getRunningGamemodeMap then
+        local m = getRunningGamemodeMap()
+        if m and isElement(m) then
+            lastMapName = getResourceName(m) or ""
+            if getResourceInfo then
+                lastMapTitle = getResourceInfo(m, "name") or ""
+            end
+        end
+    end
 end)
 
 addEventHandler("onResourceStop", resourceRoot, function()
@@ -180,6 +198,17 @@ local warpStore = {}
 local function warpPath(player)
     return "warps_" .. safeName(player) .. ".json"
 end
+
+-- ultimo mapa iniciado por el gamemode (fallback si getRunningGamemodeMap falla)
+lastMapName, lastMapTitle = "", ""
+addEventHandler("onGamemodeMapStart", root, function(theMap)
+    lastMapName = getResourceName(theMap) or ""
+    if getResourceInfo then
+        lastMapTitle = getResourceInfo(theMap, "name") or ""
+    end
+    -- al cambiar de mapa se limpian los warps de los jugadores
+    triggerClientEvent("tel:resetWarps", root, resourceRoot)
+end)
 
 addEvent("tel:saveWarps", true)
 addEventHandler("tel:saveWarps", resourceRoot, function(list)

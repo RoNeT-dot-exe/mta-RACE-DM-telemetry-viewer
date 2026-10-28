@@ -15,20 +15,20 @@ telemetry/      resource de MTA (meta.xml + client.lua + server.lua)
 viewer/         visor web (index.html + viewer.js)
 ```
 
-## Instalacion
+## Instalación
 
 ### Telemetria (server)
 
 1. Copia `telemetry/` a `mods/deathmatch/resources/telemetry/`.
 2. En la consola: `refresh` y `start telemetry`.
 
-### Viewer
+### Visor
 
 1. Abri `viewer/index.html` en el navegador (no necesita servidor).
 2. Carga un `.jsonl` con el selector de archivos.
 3. Opcional: carga el `.map` del mismo mapa para ver la pista debajo del recorrido.
 
-## Como captura
+## Cómo captura
 
 - Un `setTimer` cada **50 ms** (20 Hz) llama a `sample()`.
 - Cada muestra es una linea JSON (JSONL):
@@ -80,16 +80,33 @@ Al cargar:
 5. **Archivo anidado `[[...]]`**: el server podia guardar la lista envuelta; el cliente
    ya la desenvuelve, y ahora el server tambien **sanea y guarda un array plano**.
 
-## Viewer
+## Visor
 
-- **HUD**: vida, nitro y velocidad con **tacometro** (3 modos en Ajustes:
-  *solo numero*, *numero + tacometro*, *tacometro con numero*).
+- **HUD**: vida, nitro y velocidad con **tacómetro** (3 modos en Ajustes:
+  *solo número*, *numero + tacómetro*, *tacómetro con numero*).
 - **Linea de tiempo**: velocidad, aire, invertido, nitro y cambios de coche.
 - **Busqueda** por pieza (`oc`) y por **tiempo** (`45.5`, `1:23.4`).
 - **Ajustes** persistentes (localStorage): marcador flecha/coche/coche 3D, calidad, mapa.
 - Los iconos/modelos del coche se pueden activar con el marcador "Coche" / "Coche 3D".
 
-## Compatibilidad con el source
+## Qué podés cargar
+
+El visor acepta **tres combinaciones**:
+
+- **Solo el .map** de MTA: dibuja la pista (los objetos del mapa).
+- **Solo el .jsonl** de telemetry: dibuja el recorrido, el HUD y las piezas que toco el coche.
+- **Los dos a la vez**: si son del mismo mapa, se **aceptan** y se **superponen** para verlos
+  en conjunto (mapa de fondo + recorrido encima).
+
+Cuando cargas ambos, el visor compara los IDs de las piezas del mapa con las que toco el
+coche en la telemetria:
+
+- **misma pista** (marca verde): se muestra el mapa y se superpone la telemetria.
+- **no coinciden** (marca roja): el mapa se oculta y queda solo la telemetria.
+
+Podes prender/apagar cada capa en **Ajustes -> Mapa / Telemetria**.
+
+## Compatibilidad con el servidor
 
 - Gamemode `race`; un **DM** es un mapa race **sin checkpoints**.
 - `getRunningGamemodeMap()` + `getResourceName` dan el **tag del mapa** que se usa para la
@@ -97,6 +114,39 @@ Al cargar:
 - La muestra incluye `veh`: el analisis separa **fase coche** de **fase Hunter (modelo 425)**,
   que es la pelea final cuando terminan dos o mas.
 
+## Cambios recientes
+
+- **v1.0.1**
+  - `meta.title`: el servidor guarda el nombre del mapa (`<info name>`) y el visor lo
+    muestra en el HUD.
+  - Si la telemetría no trae mapa, el visor usa el nombre del `.map` cargado.
+  - El servidor recuerda el último mapa si `getRunningGamemodeMap()` falla.
+  - **Warps de sesión**: se limpian al reiniciar la sesión y al cambiar de mapa.
+  - Correcciones de warps (reanudación, lista, límite, modelo, archivo anidado).
+
+## Pruebalo
+
+- **En linea**: https://mplstudio.net/v-1a601cef/ (la carpeta puede cambiar si se regenera)
+- **Local**: abri `viewer/index.html` en el navegador y carga un `.jsonl`
+
+## Capturas
+
+Mapa renderizado por el visor (preview):
+
+![Mapa](docs/screenshots/craving.jpg)
+
+![Mapa 2](docs/screenshots/recorrido.jpg)
+
+
+## ¿Qué sigue?
+
+- **Rankings por mapa**: compatibilidad para guardar el recorrido y actualizarlo en las paginas web de los servers.
+- **Viewer**: mejorar visibilidad y manejo (HUD, navegacion, rendimiento).
+- **Vehiculos**: agregar modelos de otros vehiculos.
+- **Estructuras**: agregar estructuras mas detalladas.
+- **Capturas del mapa**: opcion de exportar la vista del visor (o el render del mapa) a PNG con un clic.
+
+Asi el usuario sabe que esperar de las proximas versiones.
 ## Licencia
 
 MIT. Ver `LICENSE`.

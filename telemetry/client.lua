@@ -334,8 +334,16 @@ addEventHandler("tel:warpsLoaded", resourceRoot, function(list)
         wout(string.format("warps restaurados: %d", #warps))
     end
 end)
+-- los warps son de la sesion: no sobreviven al restart del resource
 addEventHandler("onClientResourceStart", resourceRoot, function()
-    triggerServerEvent("tel:loadWarps", resourceRoot)
+    warps = {}
+end)
+
+-- el server avisa cuando cambia el mapa; un warp de otro mapa no sirve
+addEvent("tel:resetWarps", true)
+addEventHandler("tel:resetWarps", resourceRoot, function()
+    warps = {}
+    wout("warps limpiados (cambio de mapa)")
 end)
 
 local function wout(msg)

@@ -79,6 +79,7 @@ function rotMatrix(rx, ry, rz) {
 
 // ---------- estado ----------
 let mapObjs = [];
+let mapFileName = "";   // nombre del .map cargado (fallback si la telemetria no trae mapa)
 let mapPickups = [];
 let carStyle = "solid";     // solid | wire | silhouette
 let mapMarkers = [];
@@ -1281,7 +1282,7 @@ function setTel(text, name) {
     playbackHz = 20;
   }
 
-  const mapTag = (meta && meta.map) ? meta.map : "";
+  const mapTag = (meta && meta.title) ? meta.title : ((meta && meta.map) ? meta.map : mapFileName);
   $("fileInfo").textContent = `${name}${mapTag ? " · " + mapTag : ""} · ${samples.length} muestras · ${telObjs.length} piezas`;
   if ($("hudMap")) $("hudMap").textContent = mapTag ? ("mapa: " + mapTag) : "";
   if (mapTag) document.title = "MTA Viewer — " + mapTag;
@@ -1296,7 +1297,11 @@ function setTel(text, name) {
 function setMap(text, name) {
   mapObjs = parseMap(text);
   mapGroups = buildGroups(mapObjs);
-  $("fileInfo").textContent = `${name} · ${mapObjs.length} objetos`;
+  mapFileName = String(name || "").replace(/\.map$/i, "");
+  $("fileInfo").textContent = `${name}${mapFileName ? " · " + mapFileName : ""} · ${mapObjs.length} objetos`;
+  const tag = (meta && (meta.title || meta.map)) || mapFileName;
+  if ($("hudMap")) $("hudMap").textContent = tag ? ("mapa: " + tag) : "";
+  if (tag) document.title = "MTA Viewer — " + tag;
   showMap = true;
   $("showMapChk").checked = true;
   needStatic = true;

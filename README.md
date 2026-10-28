@@ -89,7 +89,7 @@ Al cargar:
 - **Ajustes** persistentes (localStorage): marcador flecha/coche/coche 3D, calidad, mapa.
 - Los iconos/modelos del coche se pueden activar con el marcador "Coche" / "Coche 3D".
 
-## Qué podés cargar
+## Qué puedes cargar?
 
 El visor acepta **tres combinaciones**:
 

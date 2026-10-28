@@ -1,0 +1,5 @@
+<meta>
+    <info author="MPL Studio" name="Telemetry Recorder" type="script" version="1.0.0" />
+    <script src="client.lua" type="client" />
+    <script src="server.lua" type="server" />
+</meta>

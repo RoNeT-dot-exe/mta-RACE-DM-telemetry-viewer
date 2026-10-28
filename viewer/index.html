@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTA Telemetry / Map Viewer</title>
+<style>
+  :root { --bg:#14171c; --panel:#1c2129; --line:#2a3140; --txt:#d7dde8; --dim:#8a94a6; --acc:#4a86e8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:13px/1.4 Segoe UI, system-ui, sans-serif; background:var(--bg); color:var(--txt); height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header b { color:#fff; margin-right:6px; }
+  header label { background:#252c37; border:1px solid var(--line); border-radius:6px; padding:4px 8px; cursor:pointer; }
+  header input[type=file] { display:none; }
+  button { background:#252c37; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  select { background:#252c37; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:4px 6px; }
+  .chk { display:flex; align-items:center; gap:4px; font-size:12px; background:#252c37; border:1px solid var(--line); border-radius:6px; padding:4px 8px; cursor:pointer; }
+  .chk input { cursor:pointer; }
+  main { flex:1; display:flex; min-height:0; overflow:hidden; position:relative; }
+  #view { flex:1 1 auto; min-width:0; min-height:0; display:block; background:#0f1216; cursor:grab; }
+  #view:active { cursor:grabbing; }
+  aside { flex:0 0 300px; width:300px; min-width:0; max-width:none; background:var(--panel); border-left:1px solid var(--line); padding:10px; overflow:auto; }
+  aside.hidden { display:none; }
+  aside input[type=number] { max-width:100%; }
+  #mini { width:100%; height:150px; background:#0f1216; border:1px solid var(--line); border-radius:6px; display:block; }
+  #stats { margin:8px 0; font-size:12px; color:var(--dim); }
+  #stats b { color:var(--txt); }
+  #hud { position:absolute; left:14px; top:12px; width:240px; padding:8px 10px; background:rgba(14,18,24,.72); border:1px solid var(--line); border-radius:8px; pointer-events:none; }
+  .hudveh { display:flex; align-items:center; gap:6px; margin-bottom:6px; padding:2px 6px; border-radius:6px; font-size:12px; color:#cfd6e2; }
+  .hudveh b { color:#fff; font-size:14px; }
+  .hudveh.flash { animation: vflash 1.8s ease-out; }
+  @keyframes vflash { 0% { background:rgba(255,211,61,.85); color:#0b0e13; } 100% { background:transparent; } }
+  .hudmap { font-size:10px; color:var(--dim); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hudrow { display:flex; align-items:center; gap:10px; margin-bottom:2px; }
+.hudspeed { display:flex; align-items:baseline; gap:4px; margin-bottom:2px; }
+  .hudspeed b { font-size:22px; color:#fff; line-height:1; }
+  .hudspeed span { font-size:10px; color:var(--dim); }
+  .hudbar { display:flex; align-items:center; gap:6px; margin:3px 0; font-size:11px; color:#cfd6e2; }
+  .hudbar span { width:44px; }
+  .hudtrack { flex:1; height:9px; background:#1a2029; border-radius:5px; overflow:hidden; }
+  .hudtrack > div { height:100%; width:0%; }
+  .hudbar b { width:40px; text-align:right; color:#fff; }
+  .meters { margin:6px 0; }
+  .meter { display:flex; align-items:center; gap:6px; margin:4px 0; font-size:11px; color:var(--dim); }
+  .meter span { width:38px; }
+  .meter .bar { flex:1; height:10px; background:#1a2029; border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+  .meter .bar > div { height:100%; width:0%; transition: width .08s linear; }
+  .meter b { width:42px; text-align:right; color:var(--txt); }
+  #time { width:100%; margin:6px 0; }
+  #tl { width:100%; height:38px; display:block; margin:6px 0 2px; background:#0f1216; border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+  .sep { width:1px; height:20px; background:var(--line); margin:0 4px; }
+#settingsModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center; }
+#settingsModal.show { display:flex; }
+.modal-box { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; width:380px; max-width:92vw; }
+.modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.modal-row { display:flex; gap:10px; align-items:center; margin:8px 0; font-size:12px; color:var(--dim); flex-wrap:wrap; }
+.modal-row > span { width:74px; }
+.modal-row select { flex:1; }
+.row { display:flex; gap:6px; margin:6px 0; flex-wrap:wrap; }
+  .legend { font-size:11px; color:var(--dim); margin-top:8px; }
+  .legend span { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; }
+  .hint { font-size:11px; color:var(--dim); margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <b>MTA Viewer</b>
+  <label>Telemetría .jsonl<input id="telFile" type="file" accept=".jsonl,.txt"></label>
+  <label>Mapa .map<input id="mapFile" type="file" accept=".map,.xml"></label>
+  <div class="sep"></div>
+  <button id="fitBtn" title="Ajustar a todo (R)">Ajustar</button>
+  <button id="topBtn" title="Vista superior (T)">Superior</button>
+  <button id="playBtn" title="Play/Pausa (espacio)">▶</button>
+  <label class="chk" title="La cámara sigue al coche (F)"><input id="followChk" type="checkbox"> Seguir</label>
+  <button id="panelBtn" title="Mostrar/ocultar el panel">Panel ◧</button>
+  <button id="settingsBtn" title="Ajustes">⚙</button>
+  <input id="addFile" type="file" accept=".jsonl,.map,.xml" multiple style="display:none">
+  <button id="addBtn" title="Agregar telemetría o mapa">+</button>
+  <select id="viewMode" title="Vista" style="display:none">
+    <option value="map">Recorrido sobre mapa</option>
+    <option value="jsonl">Solo recorrido</option>
+  </select>
+  <span id="matchInfo" style="color:#3fb950"></span>
+  <span id="fileInfo" style="color:var(--dim); margin-left: auto;"></span>
+</header>
+<div id="settingsModal">
+  <div class="modal-box">
+    <div class="modal-head"><b>Ajustes</b><button id="closeSettings" title="Cerrar">✕</button></div>
+    <div class="modal-row"><span>Marcador</span>
+      <select id="markerSel"><option value="arrow">Flecha</option><option value="car">Coche</option><option value="box">Coche 3D</option></select></div>
+    <div class="modal-row"><span>Coche</span>
+      <select id="carStyleSel"><option value="solid">Sólido</option><option value="wire">Alambre</option><option value="silhouette">Silueta</option></select></div>
+    <div class="modal-row"><span>Calidad</span>
+      <select id="qualitySel"><option value="auto">Auto</option><option value="high">Alta</option><option value="low">Baja (mapas grandes)</option></select></div>
+    <div class="modal-row"><span>HUD</span>
+      <select id="speedModeSel"><option value="num">Solo número</option><option value="numtacho" selected>Número + tacómetro</option><option value="tachonum">Tacómetro con número</option></select></div>
+    <div class="modal-row"><span>Velocidad</span>
+      <select id="speedSel"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></div>
+    <div class="modal-row"><label><input id="showMapChk" type="checkbox" checked> Mapa</label>
+      <label><input id="showTelChk" type="checkbox" checked> Telemetría</label>
+      <label><input id="showGridChk" type="checkbox"> Grilla (G)</label>
+      <label><input id="pickupsChk" type="checkbox" checked> Pickups</label>
+      <label><input id="markersChk" type="checkbox"> Markers (deco)</label></div>
+  </div>
+</div>
+<main>
+  <canvas id="view"></canvas>
+  <div id="hud">
+    <div class="hudmap" id="hudMap"></div>
+    <div class="hudveh"><b id="hudVeh">—</b></div>
+    <div class="hudrow">
+      <div class="hudspeed"><b id="hudSpeedVal">—</b><span>km/h</span></div>
+      <canvas id="tacho" width="92" height="92" title="Tacometro"></canvas>
+    </div>
+    <div class="hudbar"><span>VIDA</span><div class="hudtrack"><div id="hudHp"></div></div><b id="hudHpVal">—</b></div>
+    <div class="hudbar"><span>NITRO</span><div class="hudtrack"><div id="hudNit"></div></div><b id="hudNitVal">—</b></div>
+  </div>
+  <aside id="panel">
+    <canvas id="mini"></canvas>
+    <div id="stats">Cargá una telemetría y/o un mapa.</div>
+    <div class="meters">
+      <div class="meter"><span>vida</span><div class="bar"><div id="hpBar"></div></div><b id="hpVal">—</b></div>
+      <div class="meter"><span>nitro</span><div class="bar"><div id="nitBar"></div></div><b id="nitVal">—</b></div>
+    </div>
+    <canvas id="tl" title="Línea de tiempo: velocidad · aire · invertido · nitro · cambios de coche (clic o arrastrar)"></canvas>
+    <input id="time" type="range" min="0" max="0" value="0">
+    <div class="row">
+      <button id="prevBtn">◀</button>
+      <button id="nextBtn">▶</button>
+      <span id="idxInfo" style="color:var(--dim)"></span>
+    </div>
+    <div class="row">
+      <input id="searchN" type="number" placeholder="pieza #" style="width:80px">
+      <button id="btnSearch">Buscar</button>
+    </div>
+    <div class="row">
+      <input id="searchT" type="text" placeholder="t = 45.5 o 1:23.4" style="width:120px">
+      <button id="btnTime">Ir al tiempo</button>
+    </div>
+    <div class="row">
+      <input id="zmin" type="number" placeholder="z min" style="width:70px">
+      <input id="zmax" type="number" placeholder="z max" style="width:70px">
+      <button id="btnZ">Resaltar</button>
+    </div>
+    <div class="legend">
+      <div><span style="background:#8a8a8a"></span>losas 6959</div>
+      <div><span style="background:#3fb950"></span>3458 (transición)</div>
+      <div><span style="background:#4a86e8"></span>8558 (muro)</div>
+      <div><span style="background:#a0b840"></span>2898 (turf)</div>
+      <div><span style="background:#ffe066"></span>aire (oc vacío)</div>
+      <div><span style="background:#ff44dd"></span>invertido (magenta)</div>
+      <div><span style="background:#ff4d2e"></span>nitro (rojo)</div>
+      <div><span style="background:#ffd33d"></span>cambio de coche (rombo / marca)</div>
+    </div>
+    <div class="hint">
+      <b>Ratón:</b> izquierdo = rotar · derecho o Shift+izquierdo = mover · rueda = zoom al cursor · doble clic = ir a la curva.<br><br>
+      <b>Teclado:</b> WASD mover · Q/E zoom · flechas rotar · R ajustar · T superior · F seguir · espacio play.
+    </div>
+  </aside>
+</main>
+<script src="viewer.js"></script>
+</body>
+</html>
